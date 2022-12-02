@@ -1,28 +1,58 @@
 import { Injectable } from '@nestjs/common';
 import * as WebTorrent from 'webtorrent';
+import * as fs from 'fs';
 import { v4 } from 'uuid';
 
 const client = new WebTorrent();
 
-const magnetURI =
-  'magnet:?xt=urn:btih:42D4C21288C04F50B21D29BFB74E8198A2F4A699&tr=http%3A%2F%2Fbt2.t-ru.org%2Fann%3Fmagnet&dn=(Progressive%20Rock)%20%5BWEB%5D%20Arc%20Of%20Life%20-%20Don%27t%20Look%20Down%20-%202022%2C%20FLAC%20(tracks)%2C%20lossless';
+interface UIDMapItem {
+  magnetURI: string;
+  fileName: string;
+}
+
+const magnetURI = fs.readFileSync('./fast-magnet', 'utf-8');
+
 const torrentsList = {};
+const uidMap = {};
+
+const retTransform = (result) => result;
 
 @Injectable()
 export class AppService {
   getFilesList(): Promise<any> {
+    const fileList = Object.entries(uidMap)
+      .filter(
+        (entry: [string, UIDMapItem]) => entry[1]?.magnetURI === magnetURI,
+      )
+      .reduce((acc, item: [string, UIDMapItem]) => {
+        const [key, obj] = item;
+        acc.push({ ...obj, uid: key });
+        return acc;
+      }, []);
+
+    console.log(magnetURI, torrentsList[magnetURI]);
+    if (Object.keys(fileList).length || torrentsList[magnetURI]) {
+      return new Promise((resolve) => {
+        resolve(retTransform(fileList));
+      });
+    }
+
     return new Promise((resolve) => {
       client.add(magnetURI, function (torrent) {
         torrent.deselect(0, torrent.pieces.length - 1, false);
 
-        const torrId = v4();
-        resolve([
-          torrent.files.map((x) => x.name),
-          torrId,
-          `http://localhost:3000/file/${torrId}/${torrent.files[0].name}`,
-        ]);
-
-        torrentsList[torrId] = torrent;
+        torrentsList[magnetURI] = torrent;
+        const result = torrent.files.map((file) => {
+          const uid = v4();
+          const fileData = {
+            magnetURI,
+            fileName: file.name,
+            uid,
+          };
+          uidMap[uid] = fileData;
+          return fileData;
+        });
+        resolve(retTransform(result));
 
         console.log('Client is downloading:', torrent.numPeers);
         torrent.on('wire', function (wire, addr) {
@@ -36,12 +66,14 @@ export class AppService {
     });
   }
 
-  downloadFile(torrId, fileId) {
+  downloadFile(id) {
     console.log(torrentsList);
-    console.log(torrId, fileId);
-    const torrent = torrentsList[torrId];
+    const { magnetURI, fileName } = uidMap[id];
+    console.log(magnetURI, fileName);
+    const torrent = torrentsList[magnetURI];
 
-    const file = torrent.files.find((x) => x.name === fileId);
-    return file.createReadStream();
+    const file = torrent.files.find((x) => x.name === fileName);
+    console.log(file);
+    return file;
   }
 }

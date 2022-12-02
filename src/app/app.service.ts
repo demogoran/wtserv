@@ -2,13 +2,9 @@ import { Injectable } from '@nestjs/common';
 import * as WebTorrent from 'webtorrent';
 import * as fs from 'fs';
 import { v4 } from 'uuid';
+import { FileListItem, UIDMapItem } from 'src/utils/types';
 
 const client = new WebTorrent();
-
-interface UIDMapItem {
-  magnetURI: string;
-  fileName: string;
-}
 
 const magnetURI = fs.readFileSync('./fast-magnet', 'utf-8');
 
@@ -16,12 +12,6 @@ const torrentsList = {};
 const uidMap = {};
 
 const retTransform = (result): FileListItem[] => result;
-
-interface FileListItem {
-  magnetURI: string;
-  fileName: string;
-  uid: string;
-}
 
 @Injectable()
 export class AppService {
@@ -44,7 +34,7 @@ export class AppService {
     }
 
     return new Promise((resolve) => {
-      client.add(magnetURI, function (torrent) {
+      client.add(magnetURI, (torrent) => {
         torrent.deselect(0, torrent.pieces.length - 1, false);
 
         torrentsList[magnetURI] = torrent;
@@ -61,7 +51,7 @@ export class AppService {
         resolve(retTransform(result));
 
         console.log('Client is downloading:', torrent.numPeers);
-        torrent.on('wire', function (wire, addr) {
+        torrent.on('wire', (wire, addr) => {
           console.log(
             'connected to peer with address ' + addr,
             torrent.downloadSpeed,

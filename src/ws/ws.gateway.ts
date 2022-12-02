@@ -7,6 +7,8 @@ import {
 import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AppService } from 'src/app/app.service';
+import { FileListItem } from 'src/utils/types';
+import { getMimeType } from 'stream-mime-type';
 import { Server } from 'ws';
 
 @WebSocketGateway(8080)
@@ -15,17 +17,49 @@ export class WsGateway {
 
   constructor(private readonly appService: AppService) {}
 
-  @SubscribeMessage('events')
-  onEvent(client: any, data: any): Observable<WsResponse<number>> {
-    console.log('EVENT', client, data);
-    return from([1, 2, 3]).pipe(
-      map((item) => ({ event: 'FileList', data: item })),
-    );
+  @SubscribeMessage('getFileList')
+  async getFileList(): Promise<WsResponse<FileListItem[]>> {
+    return {
+      event: 'FileList',
+      data: await this.appService.getFilesList(),
+    };
   }
 
-  @SubscribeMessage('getFileList')
-  async getFileList(client: any, data: any): Promise<any> {
-    console.log('EVENT', client, data);
-    return this.appService.getFilesList();
+  @SubscribeMessage('getFileData')
+  async getFileInit(
+    client: any,
+    data: any,
+  ): Promise<Observable<WsResponse<unknown>>> {
+    const file = await this.appService.downloadFile(data.id);
+
+    const { stream, mime } = await getMimeType(file.createReadStream());
+
+    return new Observable((observer) => {
+      stream.on('data', (chunk) => {
+        observer.next({
+          event: 'FileData',
+          data: {
+            uid: data.id,
+            fileName: file.name,
+            length: file.length,
+            mime,
+            chunk,
+          },
+        });
+      });
+
+      stream.on('end', () => {
+        console.log(
+          'Finished',
+          observer.next({
+            event: 'FileData',
+            data: {
+              uid: data.id,
+              status: 'done',
+            },
+          }),
+        );
+      });
+    });
   }
 }

@@ -15,11 +15,17 @@ const magnetURI = fs.readFileSync('./fast-magnet', 'utf-8');
 const torrentsList = {};
 const uidMap = {};
 
-const retTransform = (result) => result;
+const retTransform = (result): FileListItem[] => result;
+
+interface FileListItem {
+  magnetURI: string;
+  fileName: string;
+  uid: string;
+}
 
 @Injectable()
 export class AppService {
-  getFilesList(): Promise<any> {
+  getFilesList(): Promise<FileListItem[]> {
     const fileList = Object.entries(uidMap)
       .filter(
         (entry: [string, UIDMapItem]) => entry[1]?.magnetURI === magnetURI,

@@ -12,7 +12,7 @@ import { FileListItem } from 'src/utils/types';
 import { getMimeType } from 'stream-mime-type';
 import { Server } from 'ws';
 
-@WebSocketGateway(8080)
+@WebSocketGateway(8080, { transports: ['websocket'] })
 export class WsGateway {
   @WebSocketServer() server: Server;
 
@@ -22,10 +22,18 @@ export class WsGateway {
   async getFileList(
     @MessageBody('magnetURI') magnetURI,
   ): Promise<WsResponse<FileListItem[]>> {
-    return {
-      event: 'FileList',
-      data: await this.appService.getFilesList(magnetURI),
-    };
+    try {
+      return {
+        event: 'FileList',
+        data: await this.appService.getFilesList(magnetURI),
+      };
+    } catch (ex) {
+      console.error('Sockets error', ex);
+      return {
+        event: 'error',
+        data: ex.message,
+      };
+    }
   }
 
   @SubscribeMessage('getFileData')
@@ -33,36 +41,41 @@ export class WsGateway {
     client: any,
     data: any,
   ): Promise<Observable<WsResponse<unknown>>> {
-    const file = await this.appService.downloadFile(data.id);
+    try {
+      const file = await this.appService.downloadFile(data.id);
 
-    const { stream, mime } = await getMimeType(file.createReadStream());
+      const { stream, mime } = await getMimeType(file.createReadStream());
 
-    return new Observable((observer) => {
-      stream.on('data', (chunk) => {
-        observer.next({
-          event: 'FileData',
-          data: {
-            uid: data.id,
-            fileName: file.name,
-            length: file.length,
-            mime,
-            chunk,
-          },
-        });
-      });
-
-      stream.on('end', () => {
-        console.log(
-          'Finished',
+      return new Observable((observer) => {
+        stream.on('data', (chunk) => {
           observer.next({
             event: 'FileData',
             data: {
               uid: data.id,
-              status: 'done',
+              fileName: file.name,
+              length: file.length,
+              mime,
+              chunk,
             },
-          }),
-        );
+          });
+        });
+
+        stream.on('end', () => {
+          console.log(
+            'Finished',
+            observer.next({
+              event: 'FileData',
+              data: {
+                uid: data.id,
+                status: 'done',
+              },
+            }),
+          );
+        });
       });
-    });
+    } catch (ex) {
+      console.error('Get file exception:', ex);
+      return null;
+    }
   }
 }

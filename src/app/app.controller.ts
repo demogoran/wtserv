@@ -18,8 +18,8 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get('/files')
-  getFilesList(): Promise<any> {
-    return this.appService.getFilesList();
+  getFilesList(magnetURI: string): Promise<any> {
+    return this.appService.getFilesList(magnetURI);
   }
 
   @Get('/file/:id')

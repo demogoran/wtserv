@@ -1,4 +1,5 @@
 import {
+  MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -18,10 +19,12 @@ export class WsGateway {
   constructor(private readonly appService: AppService) {}
 
   @SubscribeMessage('getFileList')
-  async getFileList(): Promise<WsResponse<FileListItem[]>> {
+  async getFileList(
+    @MessageBody('magnetURI') magnetURI,
+  ): Promise<WsResponse<FileListItem[]>> {
     return {
       event: 'FileList',
-      data: await this.appService.getFilesList(),
+      data: await this.appService.getFilesList(magnetURI),
     };
   }
 

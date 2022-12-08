@@ -6,8 +6,6 @@ import { FileListItem, UIDMapItem } from 'src/utils/types';
 
 const client = new WebTorrent();
 
-const magnetURI = fs.readFileSync('./fast-magnet', 'utf-8');
-
 const torrentsList = {};
 const uidMap = {};
 
@@ -15,7 +13,7 @@ const retTransform = (result): FileListItem[] => result;
 
 @Injectable()
 export class AppService {
-  getFilesList(): Promise<FileListItem[]> {
+  getFilesList(magnetURI: string): Promise<FileListItem[]> {
     const fileList = Object.entries(uidMap)
       .filter(
         (entry: [string, UIDMapItem]) => entry[1]?.magnetURI === magnetURI,

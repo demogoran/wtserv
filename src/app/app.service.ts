@@ -4,7 +4,9 @@ import * as fs from 'fs';
 import { v4 } from 'uuid';
 import { FileListItem, UIDMapItem } from 'src/utils/types';
 
-const client = new WebTorrent();
+const client = new WebTorrent({
+  torrentPort: 5511,
+});
 
 const torrentsList = {};
 const uidMap = {};
@@ -32,31 +34,38 @@ export class AppService {
     }
 
     return new Promise((resolve) => {
-      client.add(magnetURI, (torrent) => {
-        torrent.deselect(0, torrent.pieces.length - 1, false);
+      console.log('Init add files');
+      const torr = client
+        .add(magnetURI, (torrent) => {
+          console.log('Client added');
 
-        torrentsList[magnetURI] = torrent;
-        const result = torrent.files.map((file) => {
-          const uid = v4();
-          const fileData = {
-            magnetURI,
-            fileName: file.name,
-            uid,
-          };
-          uidMap[uid] = fileData;
-          return fileData;
-        });
-        resolve(retTransform(result));
+          torrent.deselect(0, torrent.pieces.length - 1, false);
 
-        console.log('Client is downloading:', torrent.numPeers);
-        torrent.on('wire', (wire, addr) => {
-          console.log(
-            'connected to peer with address ' + addr,
-            torrent.downloadSpeed,
-            torrent.downloaded,
-          );
+          const result = torrent.files.map((file) => {
+            const uid = v4();
+            const fileData = {
+              magnetURI,
+              fileName: file.name,
+              uid,
+            };
+            uidMap[uid] = fileData;
+            return fileData;
+          });
+          resolve(retTransform(result));
+
+          console.log('Client is downloading:', torrent.numPeers);
+          torrent.on('wire', (wire, addr) => {
+            console.log(
+              'connected to peer with address ' + addr,
+              torrent.downloadSpeed,
+              torrent.downloaded,
+            );
+          });
+        })
+        .on('error', (err) => {
+          console.error('TORRENT ERROR', err);
         });
-      });
+      torrentsList[magnetURI] = torr;
     });
   }
 

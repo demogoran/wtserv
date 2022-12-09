@@ -23,6 +23,7 @@ export class WsGateway {
     @MessageBody('magnetURI') magnetURI,
   ): Promise<WsResponse<FileListItem[]>> {
     try {
+      console.log('Init response', magnetURI);
       return {
         event: 'FileList',
         data: await this.appService.getFilesList(magnetURI),

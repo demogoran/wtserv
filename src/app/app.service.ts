@@ -26,7 +26,6 @@ export class AppService {
         return acc;
       }, []);
 
-    console.log(magnetURI, torrentsList[magnetURI]);
     if (Object.keys(fileList).length || torrentsList[magnetURI]) {
       return new Promise((resolve) => {
         resolve(retTransform(fileList));
